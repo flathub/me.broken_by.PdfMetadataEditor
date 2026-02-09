@@ -1,6 +1,6 @@
 app-id: me.broken_by.PdfMetadataEditor
 runtime: org.freedesktop.Platform
-runtime-version: "24.08"
+runtime-version: "25.08"
 sdk: org.freedesktop.Sdk
 command: pmedit-cli
 finish-args:
@@ -13,16 +13,24 @@ modules:
     buildsystem: simple
     build-commands:
       - mv -v app/* ${FLATPAK_DEST}
-      - install -Dm644 src/jpackage/pdf-metadata-edit.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/me.broken_by.PdfMetadataEditor.png
+      - install -Dm644 src/modules/editor-gui/jpackage/pdf-metadata-edit.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/me.broken_by.PdfMetadataEditor.png
       - install -Dm644 src/flatpak/me.broken_by.PdfMetadataEditor-mime.xml ${FLATPAK_DEST}/share/mime/packages/me.broken_by.PdfMetadataEditor.xml
       - install -Dm644 src/flatpak/me.broken_by.PdfMetadataEditor.desktop -t ${FLATPAK_DEST}/share/applications/
       - install -Dm644 src/flatpak/me.broken_by.PdfMetadataEditor.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
       - type: archive
-        url: https://github.com/zaro/pdf-metadata-editor/releases/download/v3.1.1/pdf-metadata-editor-3.1.1-linux-portable.tar.gz
-        sha256: 3f5df27a48d8df83704c96d2c964277c1711ee5ccbc9359c3031726bcd791751
+        url: https://github.com/zaro/pdf-metadata-editor/releases/download/v4.0.0/pdf-metadata-editor-4.0.0-amd64-linux-portable.tar.gz
+        sha256: 95aca5f6aac9014b7d69422c72ac04d4703f909f6a544ab62a4f96e62ce1ea56
         dest: app
+        only-arches:
+          - x86_64
       - type: archive
-        url: https://github.com/zaro/pdf-metadata-editor/archive/refs/tags/v3.1.1.zip
-        sha256: 10823d72c4c7a07f6c65325f8ccd04264f749f031932fbd6b2b2eeebc133372f
+        url: https://github.com/zaro/pdf-metadata-editor/releases/download/v4.0.0/pdf-metadata-editor-4.0.0-arm64-linux-portable.tar.gz
+        sha256: 024944f2cb30d875fc5437629184c700f986c5a8dd5ca98a379e0a5092df5d21
+        dest: app
+        only-arches:
+          - aarch64
+      - type: archive
+        url: https://github.com/zaro/pdf-metadata-editor/archive/52fa9e5c6bed41aba9deee63d67de9cfa2672256.zip
+        sha256: 10828bd63d505db5f4eb6d83da520fd2e5a581737f00ef2b4a25cd9edf298ec8
         dest: src
