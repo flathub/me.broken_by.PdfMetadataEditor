@@ -26,7 +26,7 @@ modules:
           - x86_64
       - type: archive
         url: https://github.com/zaro/pdf-metadata-editor/releases/download/v4.0.1/pdf-metadata-editor-4.0.1-arm64-linux-portable.tar.gz
-        sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        sha256: 75e9b19cb11831d0d885868b5e0b5083b16789740b65e6518e0a6be4b65d1c3e
         dest: app
         only-arches:
           - aarch64
