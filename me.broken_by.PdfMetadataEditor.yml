@@ -19,18 +19,18 @@ modules:
       - install -Dm644 src/flatpak/me.broken_by.PdfMetadataEditor.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
       - type: archive
-        url: https://github.com/zaro/pdf-metadata-editor/releases/download/v4.0.1/pdf-metadata-editor-4.0.1-amd64-linux-portable.tar.gz
-        sha256: b1718f05ada748525f11210606f6e299916e4ab5fe377465601637750cfa0d4c
+        url: https://github.com/zaro/pdf-metadata-editor/releases/download/v4.1.0/pdf-metadata-editor-4.1.0-amd64-linux-portable.tar.gz
+        sha256: 9bb179d728806a1bf447394aab58d915acdb25b7560a4f9fdd4b9404d8e9926d
         dest: app
         only-arches:
           - x86_64
       - type: archive
-        url: https://github.com/zaro/pdf-metadata-editor/releases/download/v4.0.1/pdf-metadata-editor-4.0.1-arm64-linux-portable.tar.gz
-        sha256: 75e9b19cb11831d0d885868b5e0b5083b16789740b65e6518e0a6be4b65d1c3e
+        url: https://github.com/zaro/pdf-metadata-editor/releases/download/v4.1.0/pdf-metadata-editor-4.1.0-arm64-linux-portable.tar.gz
+        sha256: 322a01cf0c36443afc756aeaf8739d374f128b12099287c27ea95198aac765f1
         dest: app
         only-arches:
           - aarch64
       - type: archive
-        url: https://github.com/zaro/pdf-metadata-editor/archive/76df0bd299802934522871fb57ada2b815ecc02b.zip
-        sha256: f046840393864f55084e8f56bb47f667b993fb0e0ea2e56ee89470bde93947e3
+        url: https://github.com/zaro/pdf-metadata-editor/archive/refs/tags/v4.1.0.zip
+        sha256: 209ed903d035ab42c691cee5dec509edae06d7c70ca9a5636c7eced77192404c
         dest: src
