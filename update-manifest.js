@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const https = require('https');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -17,6 +18,31 @@ function fetch(url) {
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve(data));
     }).on('error', reject);
+  });
+}
+
+async function downloadToFile(url, destPath) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    https.get(url, { headers: { 'User-Agent': 'Node.js script' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        fs.unlink(destPath, () => {});
+        downloadToFile(res.headers.location, destPath).then(resolve).catch(reject);
+        return;
+      }
+      res.pipe(file);
+      file.on('finish', () => resolve());
+    }).on('error', reject);
+  });
+}
+
+function computeSha256(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', reject);
   });
 }
 
@@ -52,12 +78,12 @@ async function main() {
 
   let content = fs.readFileSync(MANIFEST_PATH, 'utf8');
 
-  const replacements = [
+  const binaryReplacements = [
     { assetName: `pdf-metadata-editor-${version}-amd64-linux-portable.tar.gz`, arch: 'x86_64' },
     { assetName: `pdf-metadata-editor-${version}-arm64-linux-portable.tar.gz`, arch: 'aarch64' }
   ];
 
-  for (const { assetName, arch } of replacements) {
+  for (const { assetName, arch } of binaryReplacements) {
     const asset = assetMap[assetName];
     if (!asset) {
       console.log(`Asset ${assetName} not found, skipping`);
@@ -83,8 +109,32 @@ async function main() {
     content = content.replace(blockRegex, block);
   }
 
+  const sourceUrl = `https://github.com/zaro/pdf-metadata-editor/archive/refs/tags/${tag}.zip`;
+  console.log(`\nUpdating source archive...`);
+  console.log(`  URL: ${sourceUrl}`);
+  console.log(`  Downloading...`);
+
+  const tmpFile = `/tmp/source-${Date.now()}.zip`;
+  await downloadToFile(sourceUrl, tmpFile);
+  const sourceSha256 = await computeSha256(tmpFile);
+  fs.unlinkSync(tmpFile);
+
+  console.log(`  SHA256: ${sourceSha256}`);
+
+  const sourceBlockRegex = new RegExp(
+    `(-\\s*type:\\s*archive\\s*\\n\\s*url:\\s*)[^\\n]+\\n(\\s*sha256:\\s*)[a-f0-9]+(\\s*\\n\\s*dest:\\s*src)`,
+    'g'
+  );
+
+  const sourceBlock = `- type: archive
+        url: ${sourceUrl}
+        sha256: ${sourceSha256}
+        dest: src`;
+
+  content = content.replace(sourceBlockRegex, sourceBlock);
+
   fs.writeFileSync(MANIFEST_PATH, content);
-  console.log('Manifest updated successfully!');
+  console.log(`\nManifest updated successfully!`);
 }
 
 main().catch(err => {
