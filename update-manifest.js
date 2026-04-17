@@ -9,7 +9,7 @@ const MANIFEST_PATH = path.join(__dirname, 'me.broken_by.PdfMetadataEditor.yml')
 
 function fetch(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'Node.js script' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'Node.js script' }, agent: false }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         fetch(res.headers.location).then(resolve).catch(reject);
         return;
@@ -17,6 +17,7 @@ function fetch(url) {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve(data));
+      res.on('error', reject);
     }).on('error', reject);
   });
 }
@@ -24,15 +25,23 @@ function fetch(url) {
 async function downloadToFile(url, destPath) {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(destPath);
-    https.get(url, { headers: { 'User-Agent': 'Node.js script' } }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'Node.js script' }, agent: false }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        file.close();
         fs.unlink(destPath, () => {});
         downloadToFile(res.headers.location, destPath).then(resolve).catch(reject);
         return;
       }
       res.pipe(file);
-      file.on('finish', () => resolve());
-    }).on('error', reject);
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+    }).on('error', (err) => {
+      file.close();
+      reject(err);
+    });
+    req.on('error', reject);
   });
 }
 
@@ -95,7 +104,7 @@ async function main() {
     console.log(`  SHA256: ${asset.sha256}`);
 
     const blockRegex = new RegExp(
-      `(-\\s*type:\\s*archive\\s*\\n\\s*url:\\s*)[^\\n]+\\n(\\s*sha256:\\s*)[a-f0-9]+(\\s*\\n\\s*dest:\\s*app\\s*\\n\\s*only-arches:\\s*\\n\\s*-\\s*${arch})`,
+      `(-\\s*type:\\s*archive\\s*\\n\\s*url:\\s*[^\\n]*linux-portable\\.tar\\.gz\\s*\\n\\s*sha256:\\s*)[a-f0-9]+(\\s*\\n\\s*dest:\\s*app\\s*\\n\\s*only-arches:\\s*\\n\\s*-\\s*${arch})`,
       'g'
     );
 
@@ -122,7 +131,7 @@ async function main() {
   console.log(`  SHA256: ${sourceSha256}`);
 
   const sourceBlockRegex = new RegExp(
-    `(-\\s*type:\\s*archive\\s*\\n\\s*url:\\s*)[^\\n]+\\n(\\s*sha256:\\s*)[a-f0-9]+(\\s*\\n\\s*dest:\\s*src)`,
+    `(-\\s*type:\\s*archive\\s*\\n\\s*url:\\s*[^\\n]*archive/refs/tags[^\\n]+\\.zip\\s*\\n\\s*sha256:\\s*)[a-f0-9]+(\\s*\\n\\s*dest:\\s*src)`,
     'g'
   );
 
@@ -135,6 +144,7 @@ async function main() {
 
   fs.writeFileSync(MANIFEST_PATH, content);
   console.log(`\nManifest updated successfully!`);
+  process.exit(0);
 }
 
 main().catch(err => {
