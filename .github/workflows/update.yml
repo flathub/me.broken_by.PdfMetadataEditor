@@ -25,6 +25,11 @@ jobs:
         run: echo "version=${{ github.event.client_payload.version }}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v6
+        # FLATHUB_REPO_TOKEN is a classic PAT: the flathub org blocks
+        # fine-grained PATs, so its repos cannot be selected as a fine-grained
+        # token's scope. Classic tokens are not subject to that approval flow.
+        with:
+          token: ${{ secrets.FLATHUB_REPO_TOKEN }}
 
       - name: Update manifest
         run: node update-manifest.js "${{ steps.version.outputs.version }}"
