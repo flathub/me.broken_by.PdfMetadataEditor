@@ -69,6 +69,7 @@ async function main() {
     process.exit(1);
   }
 
+  const bareVersion = version.startsWith('v') ? version.slice(1) : version;
   const tag = version.startsWith('v') ? version : `v${version}`;
   console.log(`Fetching release info for ${tag}...`);
 
@@ -88,14 +89,16 @@ async function main() {
   let content = fs.readFileSync(MANIFEST_PATH, 'utf8');
 
   const binaryReplacements = [
-    { assetName: `pdf-metadata-editor-${version}-amd64-linux-portable.tar.gz`, arch: 'x86_64' },
-    { assetName: `pdf-metadata-editor-${version}-arm64-linux-portable.tar.gz`, arch: 'aarch64' }
+    { assetName: `pdf-metadata-editor-${bareVersion}-amd64-linux-portable.tar.gz`, arch: 'x86_64' },
+    { assetName: `pdf-metadata-editor-${bareVersion}-arm64-linux-portable.tar.gz`, arch: 'aarch64' }
   ];
+
+  const missingAssets = [];
 
   for (const { assetName, arch } of binaryReplacements) {
     const asset = assetMap[assetName];
     if (!asset) {
-      console.log(`Asset ${assetName} not found, skipping`);
+      missingAssets.push(assetName);
       continue;
     }
 
@@ -116,6 +119,15 @@ async function main() {
           - ${arch}`;
 
     content = content.replace(blockRegex, block);
+  }
+
+  if (missingAssets.length > 0) {
+    console.error(`ERROR: required release assets not found for ${tag}:`);
+    for (const assetName of missingAssets) {
+      console.error(`  - ${assetName}`);
+    }
+    console.error('Manifest NOT updated.');
+    process.exit(1);
   }
 
   const sourceUrl = `https://github.com/zaro/pdf-metadata-editor/archive/refs/tags/${tag}.zip`;

@@ -91,9 +91,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.FLATHUB_REPO_TOKEN }}
         run: |
+          set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="v${VERSION#v}"
           PR=$(gh pr view "$BRANCH" --repo flathub/me.broken_by.PdfMetadataEditor --json number --jq .number)
+          SHA=$(gh pr view "$PR" --repo flathub/me.broken_by.PdfMetadataEditor --json headRefOid --jq .headRefOid)
+          # The flathub buildbot can lag behind a push: poll until at least
+          # one status exists, then watch it to completion.
+          echo "Waiting for the first build status on PR #${PR} (sha ${SHA:0:8})..."
+          COUNT=0
+          for i in $(seq 1 40); do
+            COUNT=$(gh api "repos/flathub/me.broken_by.PdfMetadataEditor/commits/$SHA/status" --jq .total_count 2>/dev/null || echo 0)
+            if [ "${COUNT:-0}" -gt 0 ]; then
+              echo "Build status appeared after $((i * 30))s"
+              break
+            fi
+            sleep 30
+          done
+          if [ "${COUNT:-0}" -le 0 ]; then
+            echo "No build status appeared within 20 minutes; flathub buildbot may be backed up. PR left open."
+            exit 1
+          fi
           echo "Waiting for checks on PR #${PR}..."
           gh pr checks "$PR" --repo flathub/me.broken_by.PdfMetadataEditor --watch --interval 60
 
