@@ -1,0 +1,113 @@
+name: Update manifest on release
+
+# Triggered by pdf-metadata-editor/.github/workflows/flathub-update.yml when
+# a stable release is published (repository_dispatch).
+#
+# Flathub org policy allows only flathub-org actions, peter-evans/create-pull-request
+# and GitHub's own actions/* in this repository - everything below is a plain
+# `run:` shell step (node/git/gh), which is not an action.
+
+on:
+  repository_dispatch:
+    types: [update-version]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    # Flathub build checks can take a long time (builds/x86_64, aarch64)
+    timeout-minutes: 420
+    steps:
+      - name: Version from dispatch
+        id: version
+        run: echo "version=${{ github.event.client_payload.version }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+        # FLATHUB_REPO_TOKEN is a classic PAT: the flathub org blocks
+        # fine-grained PATs, so its repos cannot be selected as a fine-grained
+        # token's scope. Classic tokens are not subject to that approval flow.
+        with:
+          token: ${{ secrets.FLATHUB_REPO_TOKEN }}
+
+      - name: Update manifest
+        run: node update-manifest.js "${{ steps.version.outputs.version }}"
+
+      - name: Check for manifest changes
+        id: changes
+        run: |
+          if git diff --exit-code --quiet -- me.broken_by.PdfMetadataEditor.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push manifest
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.FLATHUB_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="v${VERSION#v}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # reuse a branch left by a previous attempt (e.g. a failed merge) or create a new one
+          git fetch origin +refs/heads/"$BRANCH":refs/remotes/origin/"$BRANCH" 2>/dev/null || true
+          if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+            git switch --create "$BRANCH" --track "origin/$BRANCH"
+          else
+            git switch --create "$BRANCH"
+          fi
+          git add me.broken_by.PdfMetadataEditor.yml
+          if git diff --cached --quiet; then
+            echo "No new changes to commit on ${BRANCH}"
+          else
+            git commit -m "Update to version ${VERSION}"
+            git push --force-with-lease origin "$BRANCH"
+          fi
+
+      - name: Open pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.FLATHUB_REPO_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="v${VERSION#v}"
+          if gh pr view "$BRANCH" --repo flathub/me.broken_by.PdfMetadataEditor --json number --jq .number >/dev/null 2>&1; then
+            echo "PR for ${BRANCH} already exists - reusing it"
+          else
+            gh pr create \
+              --repo flathub/me.broken_by.PdfMetadataEditor \
+              --base master \
+              --head "$BRANCH" \
+              --title "Update to version ${VERSION}" \
+              --body "Automated manifest update triggered by pdf-metadata-editor release ${VERSION}."
+          fi
+
+      - name: Wait for build checks
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.FLATHUB_REPO_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="v${VERSION#v}"
+          PR=$(gh pr view "$BRANCH" --repo flathub/me.broken_by.PdfMetadataEditor --json number --jq .number)
+          echo "Waiting for checks on PR #${PR}..."
+          gh pr checks "$PR" --repo flathub/me.broken_by.PdfMetadataEditor --watch --interval 60
+
+      - name: Merge pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.FLATHUB_REPO_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="v${VERSION#v}"
+          PR=$(gh pr view "$BRANCH" --repo flathub/me.broken_by.PdfMetadataEditor --json number --jq .number)
+          if gh pr merge "$PR" --repo flathub/me.broken_by.PdfMetadataEditor --merge --delete-branch=false; then
+            echo "PR #${PR} merged"
+          else
+            echo "Auto-merge blocked (branch protection or merge conflict); PR #${PR} left open for manual merge"
+            exit 1
+          fi
