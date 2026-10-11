@@ -75,8 +75,12 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="v${VERSION#v}"
-          if gh pr view "$BRANCH" --repo flathub/me.broken_by.PdfMetadataEditor --json number --jq .number >/dev/null 2>&1; then
-            echo "PR for ${BRANCH} already exists - reusing it"
+          # Only reuse an OPEN pull request: gh pr view <branch> would also
+          # return a closed PR from a previous attempt with the same branch
+          # name and no new PR would ever be created.
+          PR=$(gh pr list --repo flathub/me.broken_by.PdfMetadataEditor --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$PR" ]; then
+            echo "Open PR #${PR} for ${BRANCH} already exists - reusing it"
           else
             gh pr create \
               --repo flathub/me.broken_by.PdfMetadataEditor \
@@ -94,7 +98,11 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="v${VERSION#v}"
-          PR=$(gh pr view "$BRANCH" --repo flathub/me.broken_by.PdfMetadataEditor --json number --jq .number)
+          PR=$(gh pr list --repo flathub/me.broken_by.PdfMetadataEditor --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            echo "No open pull request for ${BRANCH}; cannot wait for checks."
+            exit 1
+          fi
           SHA=$(gh pr view "$PR" --repo flathub/me.broken_by.PdfMetadataEditor --json headRefOid --jq .headRefOid)
           # The flathub buildbot can lag behind a push: poll until at least
           # one status exists, then watch it to completion.
@@ -122,7 +130,11 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="v${VERSION#v}"
-          PR=$(gh pr view "$BRANCH" --repo flathub/me.broken_by.PdfMetadataEditor --json number --jq .number)
+          PR=$(gh pr list --repo flathub/me.broken_by.PdfMetadataEditor --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            echo "No open pull request for ${BRANCH}; nothing to merge."
+            exit 1
+          fi
           if gh pr merge "$PR" --repo flathub/me.broken_by.PdfMetadataEditor --merge --delete-branch=false; then
             echo "PR #${PR} merged"
           else
