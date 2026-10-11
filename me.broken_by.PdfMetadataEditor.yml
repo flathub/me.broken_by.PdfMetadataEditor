@@ -31,6 +31,6 @@ modules:
         only-arches:
           - aarch64
       - type: archive
-        url: https://github.com/zaro/pdf-metadata-editor/archive/refs/tags/v4.3.0.zip
-        sha256: c5208c9498efa06ebc456d8c73f2c5215cbfb066c42912b66589c3a56e107392
+        url: https://github.com/zaro/pdf-metadata-editor/archive/refs/tags/v4.4.0.zip
+        sha256: 1a66199c504adbc6e7a4cc6a7a5a03598f954dc656935e75ae026c581a201277
         dest: src
